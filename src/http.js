@@ -181,6 +181,13 @@ var http = {
                 res.sendStatus(500)
                 return
             }
+
+            // if the pool is already full, return 500
+            if (transaction.isPoolFull()) {
+                res.sendStatus(500)
+                return
+            }
+            
             transaction.isValid(tx, new Date().getTime(), function (isValid, errorMessage) {
                 if (!isValid) {
                     logr.trace('invalid http tx: ', errorMessage, tx)
