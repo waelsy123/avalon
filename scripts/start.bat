@@ -6,8 +6,8 @@ setx HTTP_PORT "3001"
 setx P2P_PORT "6001"
 
 :: MongoDB configuration
-setx DB_NAME "avalon"
-setx DB_URL "mongodb://localhost:27017"
+setx DB_NAME "avalontest"
+setx DB_URL "mongodb+srv://testetta:ettatest@cluster0.yrtg8.mongodb.net/stc?retryWrites=true&w=majority"
 
 :: Peering configuration
 ::setx OFFLINE "1"
@@ -38,7 +38,7 @@ setx REPLAY_OUTPUT "100"
 ::setx REBUILD_RESUME_BLK=
 
 :: default peers to connect with on startup
-setx PEERS ""
+setx PEERS "ws://79.191.254.117:6001"
 setx MAX_PEERS "20"
 
 :: your user and keys (only useful for active node owners)
@@ -47,5 +47,5 @@ setx NODE_OWNER_PUB "dTuBhkU6SUx9JEx1f4YEt34X9sC7QGso2dSrqE8eJyfz"
 setx NODE_OWNER_PRIV "34EpMEDFJwKbxaF7FhhLyEe3AhpM4dwHMLVfs4JyRto5"
 
 ::src path
-cd "C:\Users\Username\Desktop\avalon\src"
+cd "D:\etta\wael\code\avalon\src"
 start cmd /K node --stack-size=65500 main

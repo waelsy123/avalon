@@ -7,8 +7,8 @@
 #export P2P_HOST=0.0.0.0
 
 # MongoDB configuration
-#export DB_NAME=avalon
-#export DB_URL=mongodb://localhost:27017
+export DB_NAME=avalontest
+export DB_URL=mongodb+srv://testetta:ettatest@cluster0.yrtg8.mongodb.net/stc?retryWrites=true&w=majority
 
 # Peering configuration
 #export OFFLINE=1
