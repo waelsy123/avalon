@@ -1,0 +1,26 @@
+[2021-06-07T08:12:32.101] [INFO] default - Logger initialized
+[2021-06-07T08:12:32.545] [INFO] default - Correctly using NodeJS v16.1.0
+[2021-06-07T08:12:39.103] [INFO] default - Connected to mongodb+srv://testetta:ettatest@cluster0.yrtg8.mongodb.net/stc?retryWrites=true&w=majority/stc
+[2021-06-07T08:12:39.179] [FATAL] default - Block #0 hash doesn't match config. Did you forget to db.dropDatabase() ?
+[2021-06-07T08:13:18.173] [INFO] default - Logger initialized
+[2021-06-07T08:13:18.631] [INFO] default - Correctly using NodeJS v16.1.0
+[2021-06-07T08:13:19.425] [INFO] default - Connected to mongodb+srv://testetta:ettatest@cluster0.yrtg8.mongodb.net/stc?retryWrites=true&w=majority/stc
+[2021-06-07T08:13:19.496] [FATAL] default - Block #0 hash doesn't match config. Did you forget to db.dropDatabase() ?
+[2021-06-07T08:13:57.191] [INFO] default - Logger initialized
+[2021-06-07T08:13:57.638] [INFO] default - Correctly using NodeJS v16.1.0
+[2021-06-07T08:13:58.579] [INFO] default - Connected to mongodb+srv://testetta:ettatest@cluster0.yrtg8.mongodb.net/stc?retryWrites=true&w=majority/avalontest
+[2021-06-07T08:13:58.652] [INFO] default - Block #0 not found. Starting genesis...
+[2021-06-07T08:13:59.143] [WARN] default - No genesis.zip file found
+[2021-06-07T08:13:59.144] [INFO] default - Inserting new master account: dtube
+[2021-06-07T08:13:59.146] [INFO] default - Inserting Block #0 with hash da5fe18d0844f1f97bf5a94e7780dec18b4ab015e32383ede77158e059bacbb2
+[2021-06-07T08:13:59.462] [INFO] default - 1 acccounts loaded in RAM in 68 ms
+[2021-06-07T08:13:59.462] [INFO] default - 0 contents loaded in RAM in 0 ms
+[2021-06-07T08:13:59.529] [INFO] default - 1 leaders loaded in RAM in 67 ms
+[2021-06-07T08:13:59.598] [INFO] default - #0 is the latest block in our db
+[2021-06-07T08:14:00.145] [INFO] default - P2P ID: 26E3BfjkuY3AhoEkV7mGqVDskkHfnyLhQyS1bVLwYCofr
+[2021-06-07T08:14:00.145] [INFO] default - Listening websocket p2p port on: 6001
+[2021-06-07T08:14:00.146] [INFO] default - Version: 1.3.1
+[2021-06-07T08:14:00.152] [INFO] default - Listening http on port: 3001
+[2021-06-07T08:14:21.194] [WARN] default - peer connection failed ws://79.191.254.117:6001
+[2021-06-07T08:15:53.504] [WARN] default - Waiting 3000 ms before shut down...
+[2021-06-07T08:15:56.506] [INFO] default - Avalon exitted safely

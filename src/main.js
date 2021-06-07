@@ -13,7 +13,7 @@ rankings = require('./rankings.js')
 consensus = require('./consensus')
 
 // verify node version
-var allowNodeV = [10, 12, 14]
+var allowNodeV = [10, 12, 14,16]
 const currentNodeV = parseInt(process.versions.node.split('.')[0])
 if (allowNodeV.indexOf(currentNodeV) === -1) {
     logr.fatal('Wrong NodeJS version. Allowed versions: v'+allowNodeV.join(', v'))
