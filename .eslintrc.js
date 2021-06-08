@@ -36,7 +36,6 @@ module.exports = {
         //     'error',
         //     'never'
         // ],
-        curly: ['error', 'multi'],
         eqeqeq: ['error', 'smart'],
         'no-magic-numbers': [
             'warn',
