@@ -41,7 +41,7 @@ export REPLAY_OUTPUT=10000
 #export REBUILD_RESUME_BLK=
 
 # default peers to connect with on startup
-export PEERS=
+export PEERS=ws://avalone-bc.herokuapp.com
 export MAX_PEERS=20
 
 # your user and keys (only useful for active node owners)

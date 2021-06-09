@@ -143,7 +143,11 @@ var p2p = {
             return;
         }
         // close connection if we already have this peer ip in our connected sockets
-        for (let i = 0; i < p2p.sockets.length; i++)
+        for (let i = 0; i < p2p.sockets.length; i++) {
+            console.log(
+                '🚀 ~ file: p2p.js ~ line 149 ~ p2p.sockets',
+                p2p.sockets
+            );
             if (
                 p2p.sockets[i]._socket.remoteAddress ===
                     ws._socket.remoteAddress &&
@@ -152,17 +156,20 @@ var p2p = {
                 ws.close();
                 return;
             }
-        logr.debug(
+        }
+
+        console.log(
             'Handshaking new peer',
             ws.url || ws._socket.remoteAddress + ':' + ws._socket.remotePort
         );
+
         var random = randomBytes(config.randomBytesLength).toString('hex');
         ws.challengeHash = random;
         ws.pendingDisconnect = setTimeout(function () {
             for (let i = 0; i < p2p.sockets.length; i++)
                 if (p2p.sockets[i].challengeHash === random) {
                     p2p.sockets[i].close();
-                    logr.warn('A peer did not reply to NODE_STATUS');
+                    console.log('A peer did not reply to NODE_STATUS');
                     continue;
                 }
         }, 1000);
@@ -189,251 +196,254 @@ var p2p = {
             // logr.debug('P2P-IN '+message.t)
 
             switch (message.t) {
-            case MessageType.QUERY_NODE_STATUS:
-                // a peer is requesting our node status
-                if (
-                    typeof message.d !== 'object' &&
-                    typeof message.d.nodeId !== 'string' &&
-                    typeof message.d.random !== 'string'
-                )
-                    return;
-                var wsNodeId = message.d.nodeId;
-                if (wsNodeId === p2p.nodeId.pub) {
-                    logr.warn('Peer disconnected: same P2P ID');
-                    ws.close();
-                    return;
-                }
-
-                p2p.sockets[p2p.sockets.indexOf(ws)].node_status = {
-                    nodeId: message.d.nodeId,
-                };
-
-                var sign = secp256k1.ecdsaSign(
-                    Buffer.from(message.d.random, 'hex'),
-                    bs58.decode(p2p.nodeId.priv)
-                );
-                sign = bs58.encode(sign.signature);
-
-                var d = {
-                    origin_block: config.originHash,
-                    head_block: chain.getLatestBlock()._id,
-                    head_block_hash: chain.getLatestBlock().hash,
-                    previous_block_hash: chain.getLatestBlock().phash,
-                    nodeId: p2p.nodeId.pub,
-                    version: version,
-                    sign: sign,
-                };
-                p2p.sendJSON(ws, { t: MessageType.NODE_STATUS, d: d });
-                break;
-
-            case MessageType.NODE_STATUS:
-                // we received a peer node status
-                if (typeof message.d.sign === 'string') {
-                    var nodeId =
-                        p2p.sockets[p2p.sockets.indexOf(ws)].node_status
-                            .nodeId;
-                    if (!message.d.nodeId || message.d.nodeId !== nodeId)
-                        return;
-                    var challengeHash =
-                        p2p.sockets[p2p.sockets.indexOf(ws)].challengeHash;
-                    if (!challengeHash) return;
-                    if (message.d.origin_block !== config.originHash) {
-                        logr.debug('Different chain id, disconnecting');
-                        return ws.close();
-                    }
-                    try {
-                        var isValidSignature = secp256k1.ecdsaVerify(
-                            bs58.decode(message.d.sign),
-                            Buffer.from(challengeHash, 'hex'),
-                            bs58.decode(nodeId)
-                        );
-                        if (!isValidSignature) {
-                            logr.warn(
-                                'Wrong NODE_STATUS signature, disconnecting'
-                            );
-                            ws.close();
-                        }
-
-                        for (let i = 0; i < p2p.sockets.length; i++)
-                            if (
-                                i !== p2p.sockets.indexOf(ws) &&
-                                p2p.sockets[i].node_status &&
-                                p2p.sockets[i].node_status.nodeId === nodeId
-                            ) {
-                                logr.warn(
-                                    'Peer disconnected because duplicate connections'
-                                );
-                                p2p.sockets[i].close();
-                            }
-
-                        clearInterval(
-                            p2p.sockets[p2p.sockets.indexOf(ws)]
-                                .pendingDisconnect
-                        );
-                        delete message.d.sign;
-                        p2p.sockets[p2p.sockets.indexOf(ws)].node_status =
-                            message.d;
-                    } catch (error) {
-                        logr.error(
-                            'Error during NODE_STATUS verification',
-                            error
-                        );
-                    }
-                }
-
-                break;
-
-            case MessageType.QUERY_BLOCK:
-                // a peer wants to see the data in one of our stored blocks
-                db.collection('blocks').findOne(
-                    { _id: message.d },
-                    function (err, block) {
-                        if (err) throw err;
-                        if (block)
-                            p2p.sendJSON(ws, {
-                                t: MessageType.BLOCK,
-                                d: block,
-                            });
-                    }
-                );
-                break;
-
-            case MessageType.BLOCK:
-                // a peer sends us a block we requested with QUERY_BLOCK
-                for (let i = 0; i < p2p.recoveringBlocks.length; i++)
-                    if (p2p.recoveringBlocks[i] === message.d._id) {
-                        p2p.recoveringBlocks.splice(i, 1);
-                        break;
-                    }
-
-                if (chain.getLatestBlock()._id + 1 === message.d._id)
-                    p2p.addRecursive(message.d);
-                else {
-                    p2p.recoveredBlocks[message.d._id] = message.d;
-                    p2p.recover();
-                }
-                break;
-
-            case MessageType.NEW_BLOCK:
-                // we received a new block we didn't request from a peer
-                // we save the head_block of our peers
-                // and we forward the message to consensus if we are not replaying
-                if (!message.d) return;
-                var block = message.d;
-
-                var socket = p2p.sockets[p2p.sockets.indexOf(ws)];
-                if (!socket || !socket.node_status) return;
-                p2p.sockets[
-                    p2p.sockets.indexOf(ws)
-                ].node_status.head_block = block._id;
-                p2p.sockets[
-                    p2p.sockets.indexOf(ws)
-                ].node_status.head_block_hash = block.hash;
-                p2p.sockets[
-                    p2p.sockets.indexOf(ws)
-                ].node_status.previous_block_hash = block.phash;
-
-                if (p2p.recovering) return;
-                consensus.round(0, block);
-                break;
-
-            case MessageType.NEW_TX:
-                // we received a new transaction from a peer
-                if (p2p.recovering) return;
-                var tx = message.d;
-
-                // if the pool is already full, do nothing at all
-                if (transaction.isPoolFull()) break;
-
-                // if its already in the mempool, it means we already handled it
-                if (transaction.isInPool(tx)) break;
-
-                transaction.isValid(
-                    tx,
-                    new Date().getTime(),
-                    function (isValid) {
-                        if (isValid) {
-                            // if its valid we add it to mempool and broadcast it to our peers
-                            transaction.addToPool([tx]);
-                            p2p.broadcast({ t: 5, d: tx });
-                        }
-                    }
-                );
-                break;
-
-            case MessageType.BLOCK_CONF_ROUND:
-                // we are receiving a consensus round confirmation
-                // it should come from one of the elected leaders, so let's verify signature
-                if (p2p.recovering) return;
-                if (!message.s || !message.s.s || !message.s.n) return;
-                if (config.tmpForceTs) {
+                case MessageType.QUERY_NODE_STATUS:
+                    // a peer is requesting our node status
+                    console.log('a peer is requesting our node status')
+                    
                     if (
-                        !message.d ||
-                        !message.d.ts ||
-                        typeof message.d.ts != 'number' ||
-                        message.d.ts + 2 * config.blockTime <
-                            new Date().getTime() ||
-                        message.d.ts - 2 * config.blockTime >
-                            new Date().getTime()
+                        typeof message.d !== 'object' &&
+                        typeof message.d.nodeId !== 'string' &&
+                        typeof message.d.random !== 'string'
                     )
                         return;
-                }
-
-                logr.cons(message.s.n + ' U-R' + message.d.r);
-
-                if (p2p.sockets[p2p.sockets.indexOf(ws)]) {
-                    if (!p2p.sockets[p2p.sockets.indexOf(ws)].sentUs)
-                        p2p.sockets[p2p.sockets.indexOf(ws)].sentUs = [];
-                    p2p.sockets[p2p.sockets.indexOf(ws)].sentUs.push([
-                        message.s.s,
-                        new Date().getTime(),
-                    ]);
-                }
-
-                for (let i = 0; i < consensus.processed.length; i++) {
-                    if (
-                        consensus.processed[i][1] + 2 * config.blockTime <
-                        new Date().getTime()
-                    ) {
-                        consensus.processed.splice(i, 1);
-                        i--;
-                        continue;
-                    }
-                    if (consensus.processed[i][0].s.s === message.s.s)
-                        return;
-                }
-                consensus.processed.push([message, new Date().getTime()]);
-
-                consensus.verifySignature(message, function (isValid) {
-                    if (!isValid && !p2p.recovering) {
-                        logr.warn(
-                            'Received wrong consensus signature',
-                            message
-                        );
+                    var wsNodeId = message.d.nodeId;
+                    if (wsNodeId === p2p.nodeId.pub) {
+                        logr.warn('Peer disconnected: same P2P ID');
+                        ws.close();
                         return;
                     }
 
-                    // bounce the message to peers
-                    p2p.broadcastNotSent(message);
+                    p2p.sockets[p2p.sockets.indexOf(ws)].node_status = {
+                        nodeId: message.d.nodeId,
+                    };
 
-                    // always try to precommit in case its the first time we see it
-                    consensus.round(
-                        0,
-                        message.d.b,
-                        function (validationStep) {
-                            if (validationStep === -1) {
-                                // logr.trace('Ignored BLOCK_CONF_ROUND')
-                            } else if (validationStep === 0) {
-                                // block is being validated, we queue the message
-                                consensus.queue.push(message);
-                                logr.debug('Added to queue');
+                    var sign = secp256k1.ecdsaSign(
+                        Buffer.from(message.d.random, 'hex'),
+                        bs58.decode(p2p.nodeId.priv)
+                    );
+                    sign = bs58.encode(sign.signature);
+
+                    var d = {
+                        origin_block: config.originHash,
+                        head_block: chain.getLatestBlock()._id,
+                        head_block_hash: chain.getLatestBlock().hash,
+                        previous_block_hash: chain.getLatestBlock().phash,
+                        nodeId: p2p.nodeId.pub,
+                        version: version,
+                        sign: sign,
+                    };
+                    p2p.sendJSON(ws, { t: MessageType.NODE_STATUS, d: d });
+                    break;
+
+                case MessageType.NODE_STATUS:
+                    // we received a peer node status
+                    console.log('we received a peer node status')
+                    if (typeof message.d.sign === 'string') {
+                        var nodeId =
+                            p2p.sockets[p2p.sockets.indexOf(ws)].node_status
+                                .nodeId;
+                        if (!message.d.nodeId || message.d.nodeId !== nodeId)
+                            return;
+                        var challengeHash =
+                            p2p.sockets[p2p.sockets.indexOf(ws)].challengeHash;
+                        if (!challengeHash) return;
+                        if (message.d.origin_block !== config.originHash) {
+                            logr.debug('Different chain id, disconnecting');
+                            return ws.close();
+                        }
+                        try {
+                            var isValidSignature = secp256k1.ecdsaVerify(
+                                bs58.decode(message.d.sign),
+                                Buffer.from(challengeHash, 'hex'),
+                                bs58.decode(nodeId)
+                            );
+                            if (!isValidSignature) {
+                                logr.warn(
+                                    'Wrong NODE_STATUS signature, disconnecting'
+                                );
+                                ws.close();
                             }
-                            // process the message inside the consensus
-                            else consensus.remoteRoundConfirm(message);
+
+                            for (let i = 0; i < p2p.sockets.length; i++)
+                                if (
+                                    i !== p2p.sockets.indexOf(ws) &&
+                                    p2p.sockets[i].node_status &&
+                                    p2p.sockets[i].node_status.nodeId === nodeId
+                                ) {
+                                    logr.warn(
+                                        'Peer disconnected because duplicate connections'
+                                    );
+                                    p2p.sockets[i].close();
+                                }
+
+                            clearInterval(
+                                p2p.sockets[p2p.sockets.indexOf(ws)]
+                                    .pendingDisconnect
+                            );
+                            delete message.d.sign;
+                            p2p.sockets[p2p.sockets.indexOf(ws)].node_status =
+                                message.d;
+                        } catch (error) {
+                            logr.error(
+                                'Error during NODE_STATUS verification',
+                                error
+                            );
+                        }
+                    }
+
+                    break;
+
+                case MessageType.QUERY_BLOCK:
+                    // a peer wants to see the data in one of our stored blocks
+                    db.collection('blocks').findOne(
+                        { _id: message.d },
+                        function (err, block) {
+                            if (err) throw err;
+                            if (block)
+                                p2p.sendJSON(ws, {
+                                    t: MessageType.BLOCK,
+                                    d: block,
+                                });
                         }
                     );
-                });
-                break;
+                    break;
+
+                case MessageType.BLOCK:
+                    // a peer sends us a block we requested with QUERY_BLOCK
+                    for (let i = 0; i < p2p.recoveringBlocks.length; i++)
+                        if (p2p.recoveringBlocks[i] === message.d._id) {
+                            p2p.recoveringBlocks.splice(i, 1);
+                            break;
+                        }
+
+                    if (chain.getLatestBlock()._id + 1 === message.d._id)
+                        p2p.addRecursive(message.d);
+                    else {
+                        p2p.recoveredBlocks[message.d._id] = message.d;
+                        p2p.recover();
+                    }
+                    break;
+
+                case MessageType.NEW_BLOCK:
+                    // we received a new block we didn't request from a peer
+                    // we save the head_block of our peers
+                    // and we forward the message to consensus if we are not replaying
+                    if (!message.d) return;
+                    var block = message.d;
+
+                    var socket = p2p.sockets[p2p.sockets.indexOf(ws)];
+                    if (!socket || !socket.node_status) return;
+                    p2p.sockets[
+                        p2p.sockets.indexOf(ws)
+                    ].node_status.head_block = block._id;
+                    p2p.sockets[
+                        p2p.sockets.indexOf(ws)
+                    ].node_status.head_block_hash = block.hash;
+                    p2p.sockets[
+                        p2p.sockets.indexOf(ws)
+                    ].node_status.previous_block_hash = block.phash;
+
+                    if (p2p.recovering) return;
+                    consensus.round(0, block);
+                    break;
+
+                case MessageType.NEW_TX:
+                    // we received a new transaction from a peer
+                    if (p2p.recovering) return;
+                    var tx = message.d;
+
+                    // if the pool is already full, do nothing at all
+                    if (transaction.isPoolFull()) break;
+
+                    // if its already in the mempool, it means we already handled it
+                    if (transaction.isInPool(tx)) break;
+
+                    transaction.isValid(
+                        tx,
+                        new Date().getTime(),
+                        function (isValid) {
+                            if (isValid) {
+                                // if its valid we add it to mempool and broadcast it to our peers
+                                transaction.addToPool([tx]);
+                                p2p.broadcast({ t: 5, d: tx });
+                            }
+                        }
+                    );
+                    break;
+
+                case MessageType.BLOCK_CONF_ROUND:
+                    // we are receiving a consensus round confirmation
+                    // it should come from one of the elected leaders, so let's verify signature
+                    if (p2p.recovering) return;
+                    if (!message.s || !message.s.s || !message.s.n) return;
+                    if (config.tmpForceTs) {
+                        if (
+                            !message.d ||
+                            !message.d.ts ||
+                            typeof message.d.ts != 'number' ||
+                            message.d.ts + 2 * config.blockTime <
+                                new Date().getTime() ||
+                            message.d.ts - 2 * config.blockTime >
+                                new Date().getTime()
+                        )
+                            return;
+                    }
+
+                    logr.cons(message.s.n + ' U-R' + message.d.r);
+
+                    if (p2p.sockets[p2p.sockets.indexOf(ws)]) {
+                        if (!p2p.sockets[p2p.sockets.indexOf(ws)].sentUs)
+                            p2p.sockets[p2p.sockets.indexOf(ws)].sentUs = [];
+                        p2p.sockets[p2p.sockets.indexOf(ws)].sentUs.push([
+                            message.s.s,
+                            new Date().getTime(),
+                        ]);
+                    }
+
+                    for (let i = 0; i < consensus.processed.length; i++) {
+                        if (
+                            consensus.processed[i][1] + 2 * config.blockTime <
+                            new Date().getTime()
+                        ) {
+                            consensus.processed.splice(i, 1);
+                            i--;
+                            continue;
+                        }
+                        if (consensus.processed[i][0].s.s === message.s.s)
+                            return;
+                    }
+                    consensus.processed.push([message, new Date().getTime()]);
+
+                    consensus.verifySignature(message, function (isValid) {
+                        if (!isValid && !p2p.recovering) {
+                            logr.warn(
+                                'Received wrong consensus signature',
+                                message
+                            );
+                            return;
+                        }
+
+                        // bounce the message to peers
+                        p2p.broadcastNotSent(message);
+
+                        // always try to precommit in case its the first time we see it
+                        consensus.round(
+                            0,
+                            message.d.b,
+                            function (validationStep) {
+                                if (validationStep === -1) {
+                                    // logr.trace('Ignored BLOCK_CONF_ROUND')
+                                } else if (validationStep === 0) {
+                                    // block is being validated, we queue the message
+                                    consensus.queue.push(message);
+                                    logr.debug('Added to queue');
+                                }
+                                // process the message inside the consensus
+                                else consensus.remoteRoundConfirm(message);
+                            }
+                        );
+                    });
+                    break;
             }
         });
     },
@@ -486,7 +496,7 @@ var p2p = {
     sendJSON: (ws, d) => {
         try {
             var data = JSON.stringify(d);
-            // logr.debug('P2P-OUT:', d.t)
+            console.log('P2P-OUT:', d.t);
             ws.send(data);
         } catch (error) {
             logr.warn('Tried sending p2p message and failed');
