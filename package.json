@@ -4,6 +4,7 @@
   "description": "",
   "scripts": {
     "start": "node --stack-size=65500 src/main",
+    "reset": "node scripts/db_reset.js",
     "cli": "node src/cli.js",
     "lint": "eslint ./src/*"
   },

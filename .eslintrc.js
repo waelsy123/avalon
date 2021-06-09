@@ -36,7 +36,7 @@ module.exports = {
         //     'error',
         //     'never'
         // ],
-        console: ['always'],
+        'no-console': false,
         eqeqeq: ['error', 'smart'],
         'no-magic-numbers': [
             'warn',
