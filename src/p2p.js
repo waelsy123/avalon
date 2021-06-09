@@ -144,10 +144,6 @@ var p2p = {
         }
         // close connection if we already have this peer ip in our connected sockets
         for (let i = 0; i < p2p.sockets.length; i++) {
-            console.log(
-                '🚀 ~ file: p2p.js ~ line 149 ~ p2p.sockets',
-                p2p.sockets
-            );
             if (
                 p2p.sockets[i]._socket.remoteAddress ===
                     ws._socket.remoteAddress &&
@@ -238,6 +234,7 @@ var p2p = {
                 case MessageType.NODE_STATUS:
                     // we received a peer node status
                     console.log('we received a peer node status')
+                    console.log(message.d);
                     if (typeof message.d.sign === 'string') {
                         var nodeId =
                             p2p.sockets[p2p.sockets.indexOf(ws)].node_status
